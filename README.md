@@ -38,6 +38,134 @@ php -S localhost:8080
 
 Dann `http://localhost:8080` im Browser öffnen.
 
+## Docker (empfohlen)
+
+Das einfachste Setup: Docker-Container mit eingebautem nginx, der als Reverse Proxy zu Portainer fungiert. Kein CORS-Problem, keine zusätzliche Konfiguration nötig.
+
+### Schnellstart
+
+```bash
+git clone https://github.com/username/portainer-dashboard.git
+cd portainer-dashboard
+
+# Portainer-URL in docker-compose.yml anpassen:
+# environment:
+#   - PORTAINER_URL=https://DEINE_IP:9443
+
+docker compose up -d
+```
+
+Dashboard öffnen: `http://DEINE_IP:8080`
+
+### docker-compose.yml
+
+```yaml
+services:
+  portainer-dashboard:
+    build: .
+    container_name: portainer-dashboard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - PORTAINER_URL=https://85.x.x.x:9443  # <-- anpassen
+```
+
+### Nur Images verwenden (ohne Build)
+
+```bash
+docker compose up -d --build
+```
+
+### Port ändern
+
+In `docker-compose.yml` die `ports`-Zeile anpassen:
+```yaml
+ports:
+  - "3000:80"  # Dashboard auf Port 3000
+```
+
+### Wie es funktioniert
+
+```
+Browser → http://DEINE_IP:8080
+                ↓
+          nginx (Container)
+          ├── /           → Dashboard (statische Dateien)
+          └── /api/*      → Proxy zu Portainer API
+```
+
+nginx leitet API-Requests automatisch an die in `PORTAINER_URL` konfigurierte Portainer-Instanz weiter. Der Browser sieht nur eine einzige Origin, daher kein CORS-Problem.
+
+### Settings im Docker-Modus
+
+Im Einstellungs-Panel:
+- **Portainer URL**: **Leer lassen** (nginx übernimmt den Proxy)
+- **Environment ID**: ID der Docker-Environment (Standard: `1`)
+- **Authentifizierung**: API Key oder Username/Passwort
+
+## CORS konfigurieren (ohne Docker)
+
+Das Dashboard muss Cross-Origin Requests an Portainer senden. Ohne Konfiguration blockiert der Browser diese Anfragen. Es gibt zwei Lösungen:
+
+### Option 1: Portainer `--trusted-origins` (empfohlen)
+
+Portainer muss die Ursprungsdomain des Dashboards erlauben. Beim Start der Portainer-Container den Parameter `--trusted-origins` hinzufügen:
+
+```bash
+docker run -d -p 8000:8000 -p 9443:9443 \
+  --name portainer --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:lts \
+  --trusted-origins=http://localhost:8080
+```
+
+Mehrere Origins (kommagetrennt):
+```bash
+--trusted-origins=http://localhost:8080,https://dashboard.example.com
+```
+
+Bei Docker Compose:
+```yaml
+services:
+  portainer:
+    image: portainer/portainer-ce:lts
+    command: >
+      --trusted-origins=http://localhost:8080
+    ports:
+      - "8000:8000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+```
+
+**Wichtig:** Der Origin muss Schema (http/https), Host und ggf. Port enthalten. Kein trailing slash!
+
+### Option 2: nginx Reverse Proxy
+
+Das Dashboard über nginx bereitstellen, das als Reverse Proxy zu Portainer fungiert. Damit laufen Dashboard und API auf derselben Origin.
+
+Die vorbereitete Konfigurationsdatei `nginx.conf.example` enthält ein Beispiel. Anpassen:
+
+```bash
+# nginx.conf.example kopieren und anpassen
+cp nginx.conf.example /etc/nginx/sites-available/portainer-dashboard
+
+# Portainer-URL in der Datei ändern:
+# proxy_pass https://DEINE_PORTAINER_URL:9443;
+
+# Dashboard-Dateien kopieren
+cp -r . /var/www/portainer-dashboard/
+
+# Config aktivieren
+ln -s /etc/nginx/sites-available/portainer-dashboard /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
+```
+
+Dann `http://localhost:8080` öffnen — Dashboard und API sind auf derselben Origin, kein CORS-Problem.
+
 ## Konfiguration
 
 Beim ersten Start erscheint das Einstellungs-Panel. Folgende Werte werden benötigt:
@@ -63,6 +191,11 @@ Alternativ können auch Username und Passwort verwendet werden. Der JWT-Token wi
 ```
 portainer-dashboard/
 ├── index.html              # Hauptseite
+├── Dockerfile              # Docker Image Definition
+├── docker-compose.yml      # Docker Compose Konfiguration
+├── nginx/
+│   └── nginx.conf          # nginx Reverse Proxy Template
+├── nginx.conf.example      # nginx ohne Docker (manuell)
 ├── css/
 │   ├── theme.css           # Light/Dark Theme Variablen
 │   └── style.css           # Layout und Componenten

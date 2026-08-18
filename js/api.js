@@ -2,9 +2,10 @@ const PortainerAPI = {
   baseUrl: '',
   token: '',
   endpointId: 1,
+  proxyMode: false,
 
   async request(path, options = {}) {
-    const url = `${this.baseUrl}${path}`;
+    const url = this.proxyMode ? path : `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers
@@ -18,7 +19,19 @@ const PortainerAPI = {
       }
     }
 
-    const response = await fetch(url, { ...options, headers });
+    let response;
+    try {
+      response = await fetch(url, { ...options, headers });
+    } catch (err) {
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        throw new Error(
+          'CORS-Fehler: Der Browser blockiert diese Anfrage. ' +
+          'Lösung: Portainer mit --trusted-origins starten oder nginx Reverse Proxy nutzen. ' +
+          'Siehe README.md Abschnitt "CORS konfigurieren".'
+        );
+      }
+      throw err;
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
@@ -42,11 +55,18 @@ const PortainerAPI = {
   },
 
   init(config) {
-    this.baseUrl = config.url.replace(/\/+$/, '');
     this.endpointId = config.endpointId || 1;
 
     if (config.authMode === 'apikey') {
       this.token = config.apiKey;
+    }
+
+    if (config.url && config.url.length > 0) {
+      this.baseUrl = config.url.replace(/\/+$/, '');
+      this.proxyMode = false;
+    } else {
+      this.baseUrl = '';
+      this.proxyMode = true;
     }
   },
 
