@@ -1,0 +1,78 @@
+:root,
+[data-theme="light"] {
+  --bg-primary: #f0f2f5;
+  --bg-secondary: #e4e6eb;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8f9fa;
+  --text-primary: #1a1a2e;
+  --text-secondary: #65676b;
+  --text-muted: #8a8d91;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-light: rgba(59, 130, 246, 0.1);
+  --border: #e0e0e0;
+  --border-light: #f0f0f0;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+  --chart-bg: #ffffff;
+  --chart-grid: #f0f0f0;
+  --chart-text: #666666;
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --danger: #ef4444;
+  --danger-bg: rgba(239, 68, 68, 0.1);
+  --warning: #f59e0b;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --info: #06b6d4;
+  --info-bg: rgba(6, 182, 212, 0.1);
+  --modal-overlay: rgba(0, 0, 0, 0.4);
+  --input-bg: #ffffff;
+  --input-border: #d1d5db;
+  --input-focus: #3b82f6;
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #c1c1c1;
+  --nav-bg: #ffffff;
+  --nav-border: #e0e0e0;
+  --table-stripe: #f9fafb;
+  --table-hover: #f3f4f6;
+}
+
+[data-theme="dark"] {
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-card: #1e293b;
+  --bg-card-hover: #263348;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #60a5fa;
+  --accent-hover: #93bbfd;
+  --accent-light: rgba(96, 165, 250, 0.15);
+  --border: #334155;
+  --border-light: #1e293b;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
+  --chart-bg: #1e293b;
+  --chart-grid: #334155;
+  --chart-text: #94a3b8;
+  --success: #4ade80;
+  --success-bg: rgba(74, 222, 128, 0.15);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.15);
+  --warning: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.15);
+  --info: #22d3ee;
+  --info-bg: rgba(34, 211, 238, 0.15);
+  --modal-overlay: rgba(0, 0, 0, 0.6);
+  --input-bg: #0f172a;
+  --input-border: #475569;
+  --input-focus: #60a5fa;
+  --scrollbar-track: #1e293b;
+  --scrollbar-thumb: #475569;
+  --nav-bg: #1e293b;
+  --nav-border: #334155;
+  --table-stripe: rgba(255, 255, 255, 0.02);
+  --table-hover: rgba(255, 255, 255, 0.05);
+}

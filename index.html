@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portainer Dashboard</title>
+  <link rel="stylesheet" href="css/theme.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/uplot@1.6.32/dist/uPlot.min.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="nav-left">
+      <a href="#/dashboard" class="nav-brand">
+        <svg class="nav-logo" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="2" width="20" height="20" rx="2"/>
+          <path d="M7 12h10M12 7v10"/>
+        </svg>
+        <span>Portainer Dashboard</span>
+      </a>
+      <div class="nav-links">
+        <a href="#/dashboard" class="nav-link" data-route="dashboard">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+          </svg>
+          Dashboard
+        </a>
+        <a href="#/containers" class="nav-link" data-route="containers">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-6l-2 3h-4l-2-3H2"/>
+            <path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/>
+          </svg>
+          Container
+        </a>
+      </div>
+    </div>
+    <div class="nav-right">
+      <span class="nav-status" id="connectionStatus"></span>
+      <button class="btn-icon" id="refreshBtn" title="Aktualisieren">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6M1 20v-6h6"/>
+          <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+        </svg>
+      </button>
+      <button class="btn-icon" id="themeToggle" title="Theme wechseln">
+        <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
+          <line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+          <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
+          <line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+          <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+      <button class="btn-icon" id="settingsBtn" title="Einstellungen">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div id="view-dashboard" class="view"></div>
+    <div id="view-containers" class="view" style="display:none"></div>
+    <div id="view-container-detail" class="view" style="display:none"></div>
+  </main>
+
+  <div class="modal-overlay" id="settingsModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Einstellungen</h2>
+        <button class="btn-icon modal-close" id="settingsClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="cfgUrl">Portainer URL</label>
+          <input type="url" id="cfgUrl" placeholder="https://portainer.example.com">
+        </div>
+        <div class="form-group">
+          <label>Authentifizierung</label>
+          <div class="radio-group">
+            <label class="radio-label">
+              <input type="radio" name="authMode" value="apikey" checked> API Key
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="authMode" value="jwt"> Username / Passwort
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="apiKeyGroup">
+          <label for="cfgApiKey">API Key</label>
+          <input type="password" id="cfgApiKey" placeholder="ptr_xxxxxxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="form-group" id="jwtGroup" style="display:none">
+          <label for="cfgUsername">Username</label>
+          <input type="text" id="cfgUsername" placeholder="admin">
+        </div>
+        <div class="form-group" id="jwtPassGroup" style="display:none">
+          <label for="cfgPassword">Passwort</label>
+          <input type="password" id="cfgPassword" placeholder="••••••••">
+        </div>
+        <div class="form-group">
+          <label for="cfgEndpoint">Environment ID</label>
+          <input type="number" id="cfgEndpoint" value="1" min="1">
+        </div>
+        <div class="form-group">
+          <label for="cfgRefresh">Auto-Refresh Intervall: <span id="refreshLabel">30s</span></label>
+          <input type="range" id="cfgRefresh" min="10" max="300" step="5" value="30">
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-secondary" id="testConnectionBtn">Verbindung testen</button>
+          <button class="btn btn-primary" id="saveSettingsBtn">Speichern</button>
+        </div>
+        <div class="test-result" id="testResult"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://unpkg.com/uplot@1.6.32/dist/uPlot.iife.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/containers.js"></script>
+  <script src="js/container-detail.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
