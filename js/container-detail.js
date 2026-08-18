@@ -27,6 +27,7 @@ const ContainerDetailView = {
         `/api/endpoints/${PortainerAPI.endpointId}/docker/containers/${containerId}/json`
       );
       this.renderShell();
+      await new Promise(r => setTimeout(r, 50));
       await this.fetchAndUpdate();
       this.startPolling();
     } catch (err) {
@@ -189,7 +190,7 @@ const ContainerDetailView = {
     const gridColor = isDark ? '#334155' : '#f0f0f0';
 
     return {
-      width: 0,
+      width: this.getChartWidth(),
       height: height,
       padding: [5, 5, 5, 5],
       scales: {
@@ -229,6 +230,11 @@ const ContainerDetailView = {
       ],
       cursor: { drag: { setScale: false } }
     };
+  },
+
+  getChartWidth() {
+    const el = document.querySelector('.chart-wrapper');
+    return el ? el.offsetWidth || 600 : 600;
   },
 
   renderCpuChart() {
@@ -282,7 +288,7 @@ const ContainerDetailView = {
     const gridColor = isDark ? '#334155' : '#f0f0f0';
 
     const opts = {
-      width: 0,
+      width: this.getChartWidth(),
       height: 180,
       padding: [5, 5, 5, 5],
       scales: {
