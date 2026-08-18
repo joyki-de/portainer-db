@@ -118,11 +118,9 @@ const ContainerDetailView = {
       : '-';
 
     const net = this.calcNetworkSpeed(stats);
-    const netIfaces = Object.keys(stats.networks || {});
-    const primaryIface = netIfaces[0] || null;
 
-    const cpuVal = Math.min(cpuPercent, 100);
-    const memVal = Math.min(memPercent, 100);
+    const cpuVal = Math.min(Math.max(cpuPercent, 0), 100);
+    const memVal = Math.min(Math.max(memPercent, 0), 100);
 
     this.pushData('cpu', now, cpuVal);
     this.pushData('mem', now, memVal);
@@ -132,7 +130,6 @@ const ContainerDetailView = {
     this.updateLabel('cpuCurrent', `${cpuVal.toFixed(1)}%`);
     this.updateLabel('memCurrent', `${memVal.toFixed(1)}% (${memMB.toFixed(0)} MB / ${memLimit})`);
     this.updateLabel('netCurrent', `RX: ${this.formatSpeed(net.rx)} · TX: ${this.formatSpeed(net.tx)}`);
-
     this.updateLabel('detailCurrentStats',
       `CPU: ${cpuVal.toFixed(1)}% | Mem: ${memVal.toFixed(1)}% (${memMB.toFixed(0)} MB)`
     );
@@ -148,16 +145,17 @@ const ContainerDetailView = {
     const sysDelta = (stats.cpu_stats?.system_cpu_usage || 0)
       - (this.prevStats.cpu_stats?.system_cpu_usage || 0);
     const cpus = stats.cpu_stats?.online_cpus || 1;
-    if (sysDelta === 0) return 0;
+    if (sysDelta <= 0) return 0;
     return (cpuDelta / sysDelta) * cpus * 100;
   },
 
   calcNetworkSpeed(stats) {
     let rx = 0, tx = 0;
+    if (!this.prevStats) return { rx: 0, tx: 0 };
     const ifaces = Object.keys(stats.networks || {});
     for (const iface of ifaces) {
       const curr = stats.networks[iface];
-      const prev = this.prevStats?.networks?.[iface];
+      const prev = this.prevStats.networks?.[iface];
       if (curr && prev) {
         rx += (curr.rx_bytes - prev.rx_bytes);
         tx += (curr.tx_bytes - prev.tx_bytes);
@@ -165,8 +163,8 @@ const ContainerDetailView = {
     }
     const interval = 2;
     return {
-      rx: rx / interval / 1048576,
-      tx: tx / interval / 1048576
+      rx: Math.max(rx / interval / 1048576, 0),
+      tx: Math.max(tx / interval / 1048576, 0)
     };
   },
 
@@ -179,90 +177,125 @@ const ContainerDetailView = {
   },
 
   renderCharts() {
-    this.renderCpuChart();
-    this.renderMemChart();
-    this.renderNetChart();
-  },
+    const cpuPoints = this.data.cpu?.length || 0;
+    const memPoints = this.data.mem?.length || 0;
+    const netPoints = Math.max(this.data.netRx?.length || 0, this.data.netTx?.length || 0);
 
-  getChartOpts(height, yLabel, yFormat, yScale, color, maxY) {
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#666';
-    const gridColor = isDark ? '#334155' : '#f0f0f0';
-
-    return {
-      width: this.getChartWidth(),
-      height: height,
-      padding: [5, 5, 5, 5],
-      scales: {
-        x: { time: true },
-        [yScale]: { range: maxY ? [0, maxY] : [0, 100] }
-      },
-      axes: [
-        {
-          show: true,
-          stroke: textColor,
-          grid: { stroke: gridColor },
-          ticks: { stroke: textColor },
-          values: (u, vals) => vals.map(v => {
-            const d = new Date(v * 1000);
-            return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          }),
-          size: [0, 30]
-        },
-        {
-          scale: yScale,
-          stroke: textColor,
-          grid: { stroke: gridColor },
-          ticks: { stroke: textColor },
-          values: (u, vals) => vals.map(v => yFormat(v)),
-          size: [50, 0]
-        }
-      ],
-      series: [
-        {},
-        {
-          label: yLabel,
-          stroke: color,
-          fill: color + '18',
-          scale: yScale,
-          width: 1.5
-        }
-      ],
-      cursor: { drag: { setScale: false } }
-    };
+    if (cpuPoints >= 2) this.renderCpuChart();
+    if (memPoints >= 2) this.renderMemChart();
+    if (netPoints >= 2) this.renderNetChart();
   },
 
   getChartWidth() {
-    const el = document.querySelector('.chart-wrapper');
-    return el ? el.offsetWidth || 600 : 600;
+    const el = document.getElementById('cpuChart') || document.querySelector('.chart-wrapper');
+    if (el && el.offsetWidth > 0) return el.offsetWidth;
+    const main = document.querySelector('.main-content');
+    return main ? main.offsetWidth - 40 : 600;
+  },
+
+  getThemeColors() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    return {
+      textColor: isDark ? '#94a3b8' : '#666',
+      gridColor: isDark ? '#334155' : '#f0f0f0',
+      bg: isDark ? '#1e293b' : '#ffffff'
+    };
+  },
+
+  makeAxes(yFormat, yScale) {
+    const { textColor, gridColor } = this.getThemeColors();
+    return [
+      {
+        stroke: textColor,
+        grid: { stroke: gridColor },
+        ticks: { stroke: textColor },
+        values: (u, vals) => vals.map(v => {
+          const d = new Date(v * 1000);
+          return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }),
+        size: [0, 30]
+      },
+      {
+        scale: yScale,
+        stroke: textColor,
+        grid: { stroke: gridColor },
+        ticks: { stroke: textColor },
+        values: (u, vals) => vals.map(v => yFormat(v)),
+        size: [55, 0]
+      }
+    ];
   },
 
   renderCpuChart() {
     const el = document.getElementById('cpuChart');
     if (!el) return;
 
-    const seriesData = this.prepareChartData('cpu');
-    const opts = this.getChartOpts(180, 'CPU', v => v.toFixed(0) + '%', 'cpu', '#ff6384');
+    const timestamps = this.data.cpu.map(p => p.t);
+    const values = this.data.cpu.map(p => p.v);
+    const seriesData = [timestamps, values];
 
     if (this.charts.cpu) {
       this.charts.cpu.setData(seriesData);
-    } else {
-      this.charts.cpu = new uPlot(opts, seriesData, el);
+      return;
     }
+
+    this.charts.cpu = new uPlot({
+      width: this.getChartWidth(),
+      height: 180,
+      padding: [8, 8, 8, 8],
+      scales: {
+        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
+        cpu: { range: [0, 100] }
+      },
+      axes: this.makeAxes(v => v.toFixed(0) + '%', 'cpu'),
+      series: [
+        { stroke: 'transparent' },
+        {
+          label: 'CPU',
+          stroke: '#ff6384',
+          fill: '#ff638420',
+          scale: 'cpu',
+          width: 2
+        }
+      ],
+      cursor: { drag: { setScale: false } }
+    }, seriesData, el);
   },
 
   renderMemChart() {
     const el = document.getElementById('memChart');
     if (!el) return;
 
-    const seriesData = this.prepareChartData('mem');
-    const opts = this.getChartOpts(180, 'Memory', v => v.toFixed(0) + '%', 'mem', '#36a2eb');
+    const timestamps = this.data.mem.map(p => p.t);
+    const values = this.data.mem.map(p => p.v);
+    const seriesData = [timestamps, values];
 
     if (this.charts.mem) {
       this.charts.mem.setData(seriesData);
-    } else {
-      this.charts.mem = new uPlot(opts, seriesData, el);
+      return;
     }
+
+    this.charts.mem = new uPlot({
+      width: this.getChartWidth(),
+      height: 180,
+      padding: [8, 8, 8, 8],
+      scales: {
+        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
+        mem: { range: [0, 100] }
+      },
+      axes: this.makeAxes(v => v.toFixed(0) + '%', 'mem'),
+      series: [
+        { stroke: 'transparent' },
+        {
+          label: 'Memory',
+          stroke: '#36a2eb',
+          fill: '#36a2eb20',
+          scale: 'mem',
+          width: 2
+        }
+      ],
+      cursor: { drag: { setScale: false } }
+    }, seriesData, el);
   },
 
   renderNetChart() {
@@ -283,16 +316,19 @@ const ContainerDetailView = {
     }
 
     const seriesData = [timestamps, rxVals, txVals];
-    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    const textColor = isDark ? '#94a3b8' : '#666';
-    const gridColor = isDark ? '#334155' : '#f0f0f0';
+    const { textColor, gridColor } = this.getThemeColors();
 
-    const opts = {
+    if (this.charts.net) {
+      this.charts.net.setData(seriesData);
+      return;
+    }
+
+    this.charts.net = new uPlot({
       width: this.getChartWidth(),
       height: 180,
-      padding: [5, 5, 5, 5],
+      padding: [8, 8, 8, 8],
       scales: {
-        x: { time: true },
+        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
         net: { range: [0, 'auto'] }
       },
       axes: [
@@ -312,42 +348,29 @@ const ContainerDetailView = {
           grid: { stroke: gridColor },
           ticks: { stroke: textColor },
           values: (u, vals) => vals.map(v => v.toFixed(1) + ' MB/s'),
-          size: [65, 0]
+          size: [70, 0]
         }
       ],
       series: [
-        {},
+        { stroke: 'transparent' },
         {
           label: 'RX',
           stroke: '#4bc0c0',
-          fill: '#4bc0c018',
+          fill: '#4bc0c020',
           scale: 'net',
-          width: 1.5
+          width: 2
         },
         {
           label: 'TX',
           stroke: '#ff9f40',
-          fill: '#ff9f4018',
+          fill: '#ff9f4020',
           scale: 'net',
-          width: 1.5,
-          dash: [4, 2]
+          width: 2,
+          dash: [6, 3]
         }
       ],
       cursor: { drag: { setScale: false } }
-    };
-
-    if (this.charts.net) {
-      this.charts.net.setData(seriesData);
-    } else {
-      this.charts.net = new uPlot(opts, seriesData, el);
-    }
-  },
-
-  prepareChartData(key) {
-    const points = this.data[key] || [];
-    const timestamps = points.map(p => p.t);
-    const values = points.map(p => p.v);
-    return [timestamps, values];
+    }, seriesData, el);
   },
 
   formatSpeed(mbps) {
