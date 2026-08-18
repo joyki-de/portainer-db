@@ -79,15 +79,19 @@ const App = {
     this.updateNavActive(route);
 
     if (route === 'dashboard') {
+      document.getElementById('view-dashboard').style.display = 'block';
       this.views.dashboard.render();
       this.currentView = 'dashboard';
     } else if (route === 'containers' && !param) {
+      document.getElementById('view-containers').style.display = 'block';
       this.views.containers.render();
       this.currentView = 'containers';
     } else if (route === 'containers' && param) {
+      document.getElementById('view-container-detail').style.display = 'block';
       this.views['container-detail'].render(param);
       this.currentView = 'container-detail';
     } else {
+      document.getElementById('view-dashboard').style.display = 'block';
       this.views.dashboard.render();
       this.currentView = 'dashboard';
     }
