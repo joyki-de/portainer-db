@@ -11,7 +11,7 @@ const PortainerAPI = {
     };
 
     if (this.token) {
-      if (this.token.length > 50) {
+      if (this.token.startsWith('ptr_') || this.token.length < 80) {
         headers['X-API-Key'] = this.token;
       } else {
         headers['Authorization'] = `Bearer ${this.token}`;
@@ -103,12 +103,13 @@ const PortainerAPI = {
     try {
       const status = await this.getStatus();
       const version = await this.getVersion().catch(() => null);
+      const versionInfo = version || status;
       return {
         success: true,
-        version: version?.ServerVersion || 'unknown',
-        edition: version?.ServerEdition || 'unknown',
-        updateAvailable: version?.UpdateAvailable || false,
-        latestVersion: version?.LatestVersion || null
+        version: versionInfo.ServerVersion || versionInfo.Version || 'unknown',
+        edition: versionInfo.ServerEdition || versionInfo.Edition || 'unknown',
+        updateAvailable: versionInfo.UpdateAvailable || false,
+        latestVersion: versionInfo.LatestVersion || null
       };
     } catch (err) {
       return { success: false, error: err.message };
