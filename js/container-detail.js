@@ -3,10 +3,11 @@ const ContainerDetailView = {
   containerId: null,
   containerInfo: null,
   charts: {},
-  data: {},
   pollInterval: null,
+  pollRate: 2000,
   prevStats: null,
-  maxPoints: 300,
+  maxPoints: 120,
+  netPrev: null,
 
   init() {
     this.container = document.getElementById('view-container-detail');
@@ -17,8 +18,8 @@ const ContainerDetailView = {
     this.containerId = containerId;
     this.stopPolling();
     this.charts = {};
-    this.data = {};
     this.prevStats = null;
+    this.netPrev = null;
 
     this.container.innerHTML = '<div class="loading-spinner">Lade Container-Details...</div>';
 
@@ -27,7 +28,7 @@ const ContainerDetailView = {
         `/api/endpoints/${PortainerAPI.endpointId}/docker/containers/${containerId}/json`
       );
       this.renderShell();
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r())));
       await this.fetchAndUpdate();
       this.startPolling();
     } catch (err) {
@@ -44,6 +45,11 @@ const ContainerDetailView = {
       ? new Date(info.State.StartedAt).toLocaleString('de-DE')
       : '-';
 
+    const rates = [2, 5, 10, 30, 60, 300];
+    const rateOptions = rates.map(r =>
+      `<option value="${r}" ${r === this.pollRate / 1000 ? 'selected' : ''}>${r < 60 ? r + ' sek' : (r / 60) + ' min}</option>`
+    ).join('');
+
     this.container.innerHTML = `
       <div class="detail-header">
         <a href="#/containers" class="back-btn">
@@ -52,6 +58,10 @@ const ContainerDetailView = {
           </svg>
           Zurück
         </a>
+        <div class="detail-refresh">
+          <label style="font-size:0.8rem;color:var(--text-secondary);margin-right:0.3rem">Refresh:</label>
+          <select id="detailRefreshRate" class="select-sm">${rateOptions}</select>
+        </div>
       </div>
       <div class="section-header">
         <h2 class="section-title">${this.escapeHtml(name)}</h2>
@@ -94,6 +104,11 @@ const ContainerDetailView = {
           <div class="chart-wrapper" id="netChart"></div>
         </div>
       </div>`;
+
+    document.getElementById('detailRefreshRate').addEventListener('change', (e) => {
+      this.pollRate = parseInt(e.target.value) * 1000;
+      this.startPolling();
+    });
   },
 
   async fetchAndUpdate() {
@@ -122,10 +137,13 @@ const ContainerDetailView = {
     const cpuVal = Math.min(Math.max(cpuPercent, 0), 100);
     const memVal = Math.min(Math.max(memPercent, 0), 100);
 
-    this.pushData('cpu', now, cpuVal);
-    this.pushData('mem', now, memVal);
-    this.pushData('netRx', now, net.rx);
-    this.pushData('netTx', now, net.tx);
+    this.cpuData.push([now, cpuVal]);
+    this.memData.push([now, memVal]);
+    this.netData.push([now, net.rx, net.tx]);
+
+    if (this.cpuData.length > this.maxPoints) this.cpuData.shift();
+    if (this.memData.length > this.maxPoints) this.memData.shift();
+    if (this.netData.length > this.maxPoints) this.netData.shift();
 
     this.updateLabel('cpuCurrent', `${cpuVal.toFixed(1)}%`);
     this.updateLabel('memCurrent', `${memVal.toFixed(1)}% (${memMB.toFixed(0)} MB / ${memLimit})`);
@@ -134,8 +152,21 @@ const ContainerDetailView = {
       `CPU: ${cpuVal.toFixed(1)}% | Mem: ${memVal.toFixed(1)}% (${memMB.toFixed(0)} MB)`
     );
 
-    this.renderCharts();
+    this.updateCharts();
     this.prevStats = stats;
+  },
+
+  get cpuData() {
+    if (!this._cpuData) this._cpuData = [];
+    return this._cpuData;
+  },
+  get memData() {
+    if (!this._memData) this._memData = [];
+    return this._memData;
+  },
+  get netData() {
+    if (!this._netData) this._netData = [];
+    return this._netData;
   },
 
   calcCpuPercent(stats) {
@@ -150,92 +181,87 @@ const ContainerDetailView = {
   },
 
   calcNetworkSpeed(stats) {
-    let rx = 0, tx = 0;
     if (!this.prevStats) return { rx: 0, tx: 0 };
+    let rx = 0, tx = 0;
     const ifaces = Object.keys(stats.networks || {});
     for (const iface of ifaces) {
       const curr = stats.networks[iface];
       const prev = this.prevStats.networks?.[iface];
       if (curr && prev) {
-        rx += (curr.rx_bytes - prev.rx_bytes);
-        tx += (curr.tx_bytes - prev.tx_bytes);
+        rx += Math.max(0, curr.rx_bytes - prev.rx_bytes);
+        tx += Math.max(0, curr.tx_bytes - prev.tx_bytes);
       }
     }
-    const interval = 2;
+    const interval = this.pollRate / 1000;
     return {
-      rx: Math.max(rx / interval / 1048576, 0),
-      tx: Math.max(tx / interval / 1048576, 0)
+      rx: rx / interval / 1048576,
+      tx: tx / interval / 1048576
     };
   },
 
-  pushData(key, timestamp, value) {
-    if (!this.data[key]) this.data[key] = [];
-    this.data[key].push({ t: timestamp, v: value });
-    if (this.data[key].length > this.maxPoints) {
-      this.data[key].shift();
-    }
+  updateCharts() {
+    if (this.cpuData.length < 2) return;
+
+    const cpuD = this.cpuData.map(p => p[0]);
+    const cpuV = this.cpuData.map(p => p[1]);
+    const memD = this.memData.map(p => p[0]);
+    const memV = this.memData.map(p => p[1]);
+    const netD = this.netData.map(p => p[0]);
+    const netRx = this.netData.map(p => p[1]);
+    const netTx = this.netData.map(p => p[2]);
+
+    this.updateCpuChart([cpuD, cpuV]);
+    this.updateMemChart([memD, memV]);
+    this.updateNetChart([netD, netRx, netTx]);
   },
 
-  renderCharts() {
-    const cpuPoints = this.data.cpu?.length || 0;
-    const memPoints = this.data.mem?.length || 0;
-    const netPoints = Math.max(this.data.netRx?.length || 0, this.data.netTx?.length || 0);
+  makeTimeAxis() {
+    const { textColor, gridColor } = this.getThemeColors();
+    return {
+      stroke: textColor,
+      grid: { stroke: gridColor },
+      ticks: { stroke: textColor },
+      values: (u, vals) => vals.map(v => {
+        const d = new Date(v * 1000);
+        return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      }),
+      size: [0, 30]
+    };
+  },
 
-    if (cpuPoints >= 2) this.renderCpuChart();
-    if (memPoints >= 2) this.renderMemChart();
-    if (netPoints >= 2) this.renderNetChart();
+  makeValueAxis(yScale, yFormat) {
+    const { textColor, gridColor } = this.getThemeColors();
+    return {
+      scale: yScale,
+      stroke: textColor,
+      grid: { stroke: gridColor },
+      ticks: { stroke: textColor },
+      values: (u, vals) => vals.map(v => yFormat(v)),
+      size: [55, 0]
+    };
   },
 
   getChartWidth() {
-    const el = document.getElementById('cpuChart') || document.querySelector('.chart-wrapper');
-    if (el && el.offsetWidth > 0) return el.offsetWidth;
+    const el = document.getElementById('cpuChart');
+    if (el && el.offsetWidth > 10) return el.offsetWidth;
     const main = document.querySelector('.main-content');
-    return main ? main.offsetWidth - 40 : 600;
+    return main ? Math.max(main.offsetWidth - 60, 300) : 600;
   },
 
   getThemeColors() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
     return {
       textColor: isDark ? '#94a3b8' : '#666',
-      gridColor: isDark ? '#334155' : '#f0f0f0',
-      bg: isDark ? '#1e293b' : '#ffffff'
+      gridColor: isDark ? '#334155' : '#f0f0f0'
     };
   },
 
-  makeAxes(yFormat, yScale) {
-    const { textColor, gridColor } = this.getThemeColors();
-    return [
-      {
-        stroke: textColor,
-        grid: { stroke: gridColor },
-        ticks: { stroke: textColor },
-        values: (u, vals) => vals.map(v => {
-          const d = new Date(v * 1000);
-          return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        }),
-        size: [0, 30]
-      },
-      {
-        scale: yScale,
-        stroke: textColor,
-        grid: { stroke: gridColor },
-        ticks: { stroke: textColor },
-        values: (u, vals) => vals.map(v => yFormat(v)),
-        size: [55, 0]
-      }
-    ];
-  },
-
-  renderCpuChart() {
+  updateCpuChart(data) {
     const el = document.getElementById('cpuChart');
     if (!el) return;
 
-    const timestamps = this.data.cpu.map(p => p.t);
-    const values = this.data.cpu.map(p => p.v);
-    const seriesData = [timestamps, values];
-
     if (this.charts.cpu) {
-      this.charts.cpu.setData(seriesData);
+      this.charts.cpu.setData(data);
       return;
     }
 
@@ -244,34 +270,33 @@ const ContainerDetailView = {
       height: 180,
       padding: [8, 8, 8, 8],
       scales: {
-        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
-        cpu: { range: [0, 100] }
+        x: {},
+        y: { range: [0, 100] }
       },
-      axes: this.makeAxes(v => v.toFixed(0) + '%', 'cpu'),
+      axes: [
+        this.makeTimeAxis(),
+        this.makeValueAxis('y', v => v.toFixed(0) + '%')
+      ],
       series: [
-        { stroke: 'transparent' },
+        {},
         {
           label: 'CPU',
           stroke: '#ff6384',
-          fill: '#ff638420',
-          scale: 'cpu',
+          fill: '#ff638418',
+          scale: 'y',
           width: 2
         }
       ],
       cursor: { drag: { setScale: false } }
-    }, seriesData, el);
+    }, data, el);
   },
 
-  renderMemChart() {
+  updateMemChart(data) {
     const el = document.getElementById('memChart');
     if (!el) return;
 
-    const timestamps = this.data.mem.map(p => p.t);
-    const values = this.data.mem.map(p => p.v);
-    const seriesData = [timestamps, values];
-
     if (this.charts.mem) {
-      this.charts.mem.setData(seriesData);
+      this.charts.mem.setData(data);
       return;
     }
 
@@ -280,70 +305,50 @@ const ContainerDetailView = {
       height: 180,
       padding: [8, 8, 8, 8],
       scales: {
-        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
-        mem: { range: [0, 100] }
+        x: {},
+        y: { range: [0, 100] }
       },
-      axes: this.makeAxes(v => v.toFixed(0) + '%', 'mem'),
+      axes: [
+        this.makeTimeAxis(),
+        this.makeValueAxis('y', v => v.toFixed(0) + '%')
+      ],
       series: [
-        { stroke: 'transparent' },
+        {},
         {
           label: 'Memory',
           stroke: '#36a2eb',
-          fill: '#36a2eb20',
-          scale: 'mem',
+          fill: '#36a2eb18',
+          scale: 'y',
           width: 2
         }
       ],
       cursor: { drag: { setScale: false } }
-    }, seriesData, el);
+    }, data, el);
   },
 
-  renderNetChart() {
+  updateNetChart(data) {
     const el = document.getElementById('netChart');
     if (!el) return;
 
-    const rx = this.data.netRx || [];
-    const tx = this.data.netTx || [];
-    const len = Math.max(rx.length, tx.length);
-    const timestamps = [];
-    const rxVals = [];
-    const txVals = [];
-
-    for (let i = 0; i < len; i++) {
-      timestamps.push(rx[i]?.t || tx[i]?.t || 0);
-      rxVals.push(rx[i]?.v || 0);
-      txVals.push(tx[i]?.v || 0);
-    }
-
-    const seriesData = [timestamps, rxVals, txVals];
-    const { textColor, gridColor } = this.getThemeColors();
-
     if (this.charts.net) {
-      this.charts.net.setData(seriesData);
+      this.charts.net.setData(data);
       return;
     }
+
+    const { textColor, gridColor } = this.getThemeColors();
 
     this.charts.net = new uPlot({
       width: this.getChartWidth(),
       height: 180,
       padding: [8, 8, 8, 8],
       scales: {
-        x: { range: [timestamps[0], timestamps[timestamps.length - 1]] },
-        net: { range: [0, 'auto'] }
+        x: {},
+        y: { range: [0, 'auto'] }
       },
       axes: [
+        this.makeTimeAxis(),
         {
-          stroke: textColor,
-          grid: { stroke: gridColor },
-          ticks: { stroke: textColor },
-          values: (u, vals) => vals.map(v => {
-            const d = new Date(v * 1000);
-            return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-          }),
-          size: [0, 30]
-        },
-        {
-          scale: 'net',
+          scale: 'y',
           stroke: textColor,
           grid: { stroke: gridColor },
           ticks: { stroke: textColor },
@@ -352,25 +357,25 @@ const ContainerDetailView = {
         }
       ],
       series: [
-        { stroke: 'transparent' },
+        {},
         {
           label: 'RX',
           stroke: '#4bc0c0',
-          fill: '#4bc0c020',
-          scale: 'net',
+          fill: '#4bc0c018',
+          scale: 'y',
           width: 2
         },
         {
           label: 'TX',
           stroke: '#ff9f40',
-          fill: '#ff9f4020',
-          scale: 'net',
+          fill: '#ff9f4018',
+          scale: 'y',
           width: 2,
           dash: [6, 3]
         }
       ],
       cursor: { drag: { setScale: false } }
-    }, seriesData, el);
+    }, data, el);
   },
 
   formatSpeed(mbps) {
@@ -386,7 +391,7 @@ const ContainerDetailView = {
 
   startPolling() {
     this.stopPolling();
-    this.pollInterval = setInterval(() => this.fetchAndUpdate(), 2000);
+    this.pollInterval = setInterval(() => this.fetchAndUpdate(), this.pollRate);
   },
 
   stopPolling() {
@@ -401,8 +406,11 @@ const ContainerDetailView = {
     if (this.charts.cpu) { this.charts.cpu.destroy(); this.charts.cpu = null; }
     if (this.charts.mem) { this.charts.mem.destroy(); this.charts.mem = null; }
     if (this.charts.net) { this.charts.net.destroy(); this.charts.net = null; }
-    this.data = {};
+    this._cpuData = [];
+    this._memData = [];
+    this._netData = [];
     this.prevStats = null;
+    this.netPrev = null;
   },
 
   escapeHtml(str) {

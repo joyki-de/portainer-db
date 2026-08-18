@@ -349,8 +349,25 @@ a:hover {
 .detail-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  justify-content: space-between;
   margin-bottom: 1.5rem;
+}
+.detail-refresh {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.select-sm {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--input-border);
+  border-radius: 6px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+}
+.select-sm:focus {
+  outline: none;
+  border-color: var(--input-focus);
 }
 .back-btn {
   display: inline-flex;
