@@ -2,10 +2,9 @@ const PortainerAPI = {
   baseUrl: '',
   token: '',
   endpointId: 1,
-  proxyMode: false,
 
   async request(path, options = {}) {
-    const url = this.proxyMode ? path : `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers
@@ -61,13 +60,7 @@ const PortainerAPI = {
       this.token = config.apiKey;
     }
 
-    if (config.url && config.url.length > 0) {
-      this.baseUrl = config.url.replace(/\/+$/, '');
-      this.proxyMode = false;
-    } else {
-      this.baseUrl = '';
-      this.proxyMode = true;
-    }
+    this.baseUrl = '';
   },
 
   async getStatus() {
