@@ -38,6 +38,6 @@ const Config = {
 
   isConfigured() {
     const c = this.load();
-    return c.url.length > 0 && (c.apiKey.length > 0 || (c.username.length > 0 && c.password.length > 0));
+    return c.apiKey.length > 0 || (c.username.length > 0 && c.password.length > 0);
   }
 };

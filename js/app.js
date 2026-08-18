@@ -108,7 +108,6 @@ const App = {
 
   showSettings() {
     const config = Config.load();
-    document.getElementById('cfgUrl').value = config.url;
     document.getElementById('cfgApiKey').value = config.apiKey;
     document.getElementById('cfgUsername').value = config.username;
     document.getElementById('cfgPassword').value = config.password;
@@ -140,7 +139,7 @@ const App = {
   async saveSettings() {
     const mode = document.querySelector('input[name="authMode"]:checked').value;
     const config = {
-      url: document.getElementById('cfgUrl').value.trim().replace(/\/+$/, ''),
+      url: '',
       authMode: mode,
       apiKey: document.getElementById('cfgApiKey').value.trim(),
       username: document.getElementById('cfgUsername').value.trim(),
@@ -166,7 +165,7 @@ const App = {
 
     const mode = document.querySelector('input[name="authMode"]:checked').value;
     const tempConfig = {
-      url: document.getElementById('cfgUrl').value.trim().replace(/\/+$/, ''),
+      url: '',
       authMode: mode,
       apiKey: document.getElementById('cfgApiKey').value.trim(),
       username: document.getElementById('cfgUsername').value.trim(),
