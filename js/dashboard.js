@@ -9,43 +9,52 @@ const DashboardView = {
     if (!this.container) return;
     this.container.innerHTML = '<div class="loading-spinner">Lade Dashboard...</div>';
 
-    try {
-      const [status, version, systemInfo, dashboard, stacks] = await Promise.all([
-        PortainerAPI.getStatus().catch(() => null),
-        PortainerAPI.getVersion().catch(() => null),
-        PortainerAPI.getSystemInfo().catch(() => null),
-        PortainerAPI.getDashboard().catch(() => null),
-        PortainerAPI.getStacks().catch(() => [])
-      ]);
+    const errors = [];
 
-      const activeStacks = Array.isArray(stacks)
-        ? stacks.filter(s => s.Status === 1).length
-        : 0;
+    const [status, version, systemInfo, dashboard, stacks] = await Promise.all([
+      PortainerAPI.getStatus().catch(e => { errors.push('Status: ' + e.message); return null; }),
+      PortainerAPI.getVersion().catch(e => { errors.push('Version: ' + e.message); return null; }),
+      PortainerAPI.getSystemInfo().catch(e => { errors.push('System: ' + e.message); return null; }),
+      PortainerAPI.getDashboard().catch(e => { errors.push('Dashboard: ' + e.message); return null; }),
+      PortainerAPI.getStacks().catch(e => { errors.push('Stacks: ' + e.message); return []; })
+    ]);
 
+    if (errors.length > 0 && !status && !version && !dashboard) {
       this.container.innerHTML = `
-        <div class="cards-grid">
-          ${this.renderStatusCard(status, version)}
-          ${this.renderSystemCard(systemInfo)}
-          ${this.renderRunningCard(dashboard)}
-          ${this.renderStoppedCard(dashboard)}
-          ${this.renderImagesCard(dashboard)}
-          ${this.renderVolumesCard(dashboard)}
-          ${this.renderNetworksCard(dashboard)}
-          ${this.renderStacksCard(activeStacks, dashboard)}
-        </div>
-        <div class="section">
-          <div class="section-header">
-            <h2 class="section-title">Container</h2>
-            <a href="#/containers" class="btn btn-secondary btn-sm">Alle anzeigen →</a>
-          </div>
-          <p style="color:var(--text-muted);font-size:0.9rem">
-            ${dashboard?.containers?.running || 0} laufende, ${dashboard?.containers?.stopped || 0} gestoppte Container
-          </p>
-        </div>
-      `;
-    } catch (err) {
-      this.container.innerHTML = `<div class="empty-state"><p>Fehler beim Laden des Dashboards</p><p style="font-size:0.8rem">${err.message}</p></div>`;
+        <div class="empty-state">
+          <p>Fehler beim Laden des Dashboards</p>
+          <p style="font-size:0.8rem;margin-bottom:1rem">Alle API-Aufrufe fehlgeschlagen. Prüfe die Einstellungen und die Portainer-Verbindung.</p>
+          <p style="font-size:0.75rem;color:var(--danger)">${errors.join('<br>')}</p>
+          <button class="btn btn-secondary btn-sm" style="margin-top:1rem" onclick="document.getElementById('settingsBtn').click()">Einstellungen öffnen</button>
+        </div>`;
+      return;
     }
+
+    const activeStacks = Array.isArray(stacks)
+      ? stacks.filter(s => s.Status === 1).length
+      : 0;
+
+    this.container.innerHTML = `
+      <div class="cards-grid">
+        ${this.renderStatusCard(status, version)}
+        ${this.renderSystemCard(systemInfo)}
+        ${this.renderRunningCard(dashboard)}
+        ${this.renderStoppedCard(dashboard)}
+        ${this.renderImagesCard(dashboard)}
+        ${this.renderVolumesCard(dashboard)}
+        ${this.renderNetworksCard(dashboard)}
+        ${this.renderStacksCard(activeStacks, dashboard)}
+      </div>
+      <div class="section">
+        <div class="section-header">
+          <h2 class="section-title">Container</h2>
+          <a href="#/containers" class="btn btn-secondary btn-sm">Alle anzeigen →</a>
+        </div>
+        <p style="color:var(--text-muted);font-size:0.9rem">
+          ${dashboard?.containers?.running || 0} laufende, ${dashboard?.containers?.stopped || 0} gestoppte Container
+        </p>
+      </div>
+    `;
   },
 
   renderStatusCard(status, version) {

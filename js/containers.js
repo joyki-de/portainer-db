@@ -13,11 +13,20 @@ const ContainersView = {
     this.container.innerHTML = '<div class="loading-spinner">Lade Container...</div>';
 
     try {
-      this.containers = await PortainerAPI.getContainers(true);
+      const result = await PortainerAPI.getContainers(true);
+      this.containers = Array.isArray(result) ? result : [];
+      if (!Array.isArray(result)) {
+        console.warn('Container API returned non-array:', result);
+      }
       this.containers.sort((a, b) => this.compare(a, b));
       this.renderTable();
     } catch (err) {
-      this.container.innerHTML = `<div class="empty-state"><p>Fehler beim Laden der Container</p><p style="font-size:0.8rem">${err.message}</p></div>`;
+      this.container.innerHTML = `
+        <div class="empty-state">
+          <p>Fehler beim Laden der Container</p>
+          <p style="font-size:0.8rem;margin-bottom:1rem">${err.message}</p>
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('settingsBtn').click()">Einstellungen öffnen</button>
+        </div>`;
     }
   },
 

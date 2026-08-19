@@ -5,10 +5,14 @@ const PortainerAPI = {
 
   async request(path, options = {}) {
     const url = `${this.baseUrl}${path}`;
+    const method = options.method || 'GET';
     const headers = {
-      'Content-Type': 'application/json',
       ...options.headers
     };
+
+    if (method !== 'GET' && method !== 'HEAD') {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (this.token) {
       if (this.token.startsWith('ptr_') || this.token.length < 80) {

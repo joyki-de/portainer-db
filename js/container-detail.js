@@ -47,7 +47,7 @@ const ContainerDetailView = {
 
     const rates = [2, 5, 10, 30, 60, 300];
     const rateOptions = rates.map(r =>
-      `<option value="${r}" ${r === this.pollRate / 1000 ? 'selected' : ''}>${r < 60 ? r + ' sek' : (r / 60) + ' min}</option>`
+      `<option value="${r}" ${r === this.pollRate / 1000 ? 'selected' : ''}>${r < 60 ? r + ' sek' : (r / 60) + ' min'}</option>`
     ).join('');
 
     this.container.innerHTML = `
